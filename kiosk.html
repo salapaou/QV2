@@ -1,0 +1,68 @@
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รับคิว</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;background:#0d1117;color:#fff;margin:0;display:flex;min-height:100vh}
+  .wrap{margin:auto;max-width:520px;padding:20px}
+  .card{background:#111826;border:1px solid #222;border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+  h1{margin-block:0 12px;margin-inline:auto;text-align:center;font-size:22px;}
+  label{display:block;margin:10px 0 6px}
+  input{width:90%;padding:12px;border-radius:10px;border:1px solid #333;background:#0b1220;color:#fff}
+  button{width:100%;padding:14px;border:none;border-radius:12px;margin-top:14px;background:#16a34a;color:#fff;font-weight:900;letter-spacing:.4px;cursor:pointer}
+  .note{opacity:.8;font-size:13px;margin-top:10px}
+  .ok{background:#0b1220;border:1px dashed #2a2a3a;border-radius:12px;padding:12px;margin-top:12px;text-align:center}
+  .type{font-weight:900}
+  .hidden{display:none}
+</style></head><body>
+<div class="wrap">
+  <div class="card">
+    <h1>รับคิว</h1>
+    <div id="tinfo" class="note">ประเภท: —</div>
+    <div id="form">
+      <label>ชื่อนักเรียน–นามสกุล</label>
+      <input id="name" placeholder="พิมพ์ชื่อ–นามสกุล" autocomplete="off">
+      <button id="btn">รับคิว</button>
+      <div class="note">ระบบจำกัด 1 อุปกรณ์/5 นาที เพื่อป้องกันจองซ้ำ</div>
+    </div>
+    <div id="result" class="hidden">
+      <div class="ok">
+        <div style="opacity:.8">เลขคิวของคุณ</div>
+        <div id="q" style="font-size:34px;font-weight:900;margin:6px 0 2px">—</div>
+        <div id="tdisplay" class="type">—</div>
+        <div id="cid" style="opacity:.7;font-size:12px;margin-top:6px">รหัสยืนยัน: —</div>
+      </div>
+      <button id="statusBtn" style="margin-top:12px;background:#2563eb">ดูสถานะคิวฉัน</button>
+    </div>
+  </div>
+</div>
+<script>
+  const url = new URL(location.href);
+  const type = url.searchParams.get('type') || 'A';
+
+  let cid = localStorage.getItem('qv2_cid');
+  if(!cid){ cid = 'C'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); localStorage.setItem('qv2_cid',cid); }
+
+  google.script.run.withSuccessHandler(info=>{
+    document.getElementById('tinfo').textContent = `ประเภท: ${info.display}`;
+  }).withFailureHandler(err=> alert(err.message||err)).kioskTypeInfo(type);
+
+  document.getElementById('btn').onclick = ()=>{
+    const name = (document.getElementById('name').value||'').trim();
+    if(!name) return alert('กรุณากรอกชื่อ–นามสกุล');
+    document.getElementById('btn').disabled = true;
+
+    google.script.run.withSuccessHandler(res=>{
+      const f = document.getElementById('form'); const r = document.getElementById('result');
+      document.getElementById('q').textContent = res.queue_number;
+      document.getElementById('tdisplay').textContent = res.type_display;
+      document.getElementById('cid').textContent = `รหัสยืนยัน: ${cid.slice(0,6).toUpperCase()}`;
+      f.classList.add('hidden'); r.classList.remove('hidden');
+    }).withFailureHandler(err=>{
+      document.getElementById('btn').disabled=false;
+      alert(err.message||err);
+    }).kioskTakeTicket({type, student_name:name, client_id:cid});
+  };
+
+  document.getElementById('statusBtn').onclick = ()=> alert('สถานะ: รอเรียก (เข้าหน้างานติดตามบนจอประกาศ)');
+</script>
+</body></html>
