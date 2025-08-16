@@ -1,0 +1,56 @@
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>ระบบเรียกคิวรวม</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:#0d1117;color:#fff;font-family:"Noto Sans Thai",system-ui}
+.header{height:40px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;background:#111826;border-bottom:1px solid rgba(255,255,255,.08)}
+.grid{height:calc(100vh - 40px);padding:8px;display:grid;gap:6px;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(5,1fr)}
+.card{position:relative;border:2px solid rgba(255,255,255,.14);border-radius:12px;padding:6px 8px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg, rgba(var(--tR,55),var(--tG,65),var(--tB,81),.16) 0%, rgba(0,0,0,0) 60%),#111826;box-shadow:0 6px 14px rgba(0,0,0,.22)}
+.chip{position:absolute;top:6px;right:8px;display:flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;font-weight:900;font-size:11px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:rgb(var(--tR,55),var(--tG,65),var(--tB,81))}
+.ct{font-weight:900;font-size:14px;opacity:.9}
+.queue{text-align:center;font-weight:900;font-size:18px;padding:4px 6px;border-radius:8px;background:rgba(0,0,0,.25);border:1px dashed rgba(255,255,255,.13);min-height:26px}
+.btnrow{display:grid;grid-template-columns:max-content max-content max-content;justify-content:end;justify-items:end;align-items:center;gap:6px}
+.sq{display:flex;align-items:center;justify-content:center;border:none;color:#fff;font-weight:900;border-radius:10px;cursor:pointer;transition:transform .03s ease,opacity .2s ease}
+.sq:active{transform:scale(.985)} .sq[disabled]{opacity:.5;pointer-events:none}
+.sq.back{width:44px;height:44px;background:#6b7280;font-size:12px}
+.sq.repeat{width:50px;height:50px;background:#2563eb;font-size:13px}
+.sq.call{width:58px;height:58px;background:#16a34a;font-size:14px}
+.off::after{content:'ปิด';position:absolute;top:6px;left:8px;font-size:11px;padding:1px 6px;background:#ef4444;border-radius:8px;font-weight:800}
+</style></head><body>
+<div class="header">ระบบเรียกคิวรวม</div>
+<div class="grid" id="grid"></div>
+
+<script>
+(function buildCards(){
+  const g=document.getElementById('grid');
+  for(let i=1;i<=10;i++){
+    g.insertAdjacentHTML('beforeend',
+      `<div class="card" data-counter="${i}" style="--tR:55;--tG:65;--tB:81">
+         <div class="chip"><span class="dot"></span><span id="type-${i}">—</span></div>
+         <div class="ct">โต๊ะ ${i}</div>
+         <div class="queue" id="q-${i}">—</div>
+         <div class="btnrow">
+           <button class="sq back" data-action="back" data-hold="600">BACK</button>
+           <button class="sq repeat" data-action="repeat">REPEAT</button>
+           <button class="sq call" data-action="call">CALL</button>
+         </div>
+       </div>`);
+  }
+  bindBackHold(); // ต้องผูกหลังจากสร้างปุ่มแล้ว
+})();
+
+function hexToRgb(hex){const m=/#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})/i.exec(hex||'#374151');return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:{r:55,g:65,b:81}}
+function paint(n,color,disp,open,q){const card=document.querySelector(`.card[data-counter="${n}"]`);if(!card)return;const rgb=hexToRgb(color);card.style.setProperty('--tR',rgb.r);card.style.setProperty('--tG',rgb.g);card.style.setProperty('--tB',rgb.b);document.getElementById('type-'+n).textContent=disp||'—';document.getElementById('q-'+n).textContent=q||'—';card.classList.toggle('off',!open);card.querySelector('.sq.call').disabled=!open}
+function refresh(){google.script.run.withSuccessHandler(res=>{(res.counters||[]).forEach(c=>paint(c.counter_no,c.color_hex,c.type_display,c.is_open,c.current_queue))}).getCentralState()}
+setInterval(refresh,3000); refresh();
+
+function flash(card,ok){card.style.boxShadow=ok?'0 0 0 2px rgba(34,197,94,.9)':'0 0 0 2px rgba(239,68,68,.9)';setTimeout(()=>card.style.boxShadow='0 6px 14px rgba(0,0,0,.22)',300)}
+function lock(card,on){card.querySelectorAll('.sq').forEach(b=>b.disabled=!!on)}
+function callApi(name,c){const card=document.querySelector(`.card[data-counter="${c}"]`);lock(card,true);const run=google?.script?.run?.withSuccessHandler(()=>{flash(card,true);refresh()})?.withFailureHandler(()=>flash(card,false))[name];if(run)run(c);setTimeout(()=>lock(card,false),220)}
+document.getElementById('grid').addEventListener('click',e=>{const b=e.target.closest('.sq');if(!b)return;const c=Number(b.closest('.card').dataset.counter);if(b.dataset.action==='repeat')return callApi('recall',c);if(b.dataset.action==='call')return callApi('next',c)})
+function bindBackHold(){document.querySelectorAll('.sq.back').forEach(btn=>{const ms=parseInt(btn.dataset.hold||'600',10);let t=null;const start=e=>{e.preventDefault();if(btn.disabled)return;const c=Number(btn.closest('.card').dataset.counter);t=setTimeout(()=>{t=null;callApi('back',c)},ms)};const cancel=()=>{if(t){clearTimeout(t);t=null}};btn.addEventListener('touchstart',start,{passive:false});btn.addEventListener('mousedown',start);['touchend','touchcancel','mouseup','mouseleave'].forEach(ev=>btn.addEventListener(ev,cancel))})}
+</script>
+</body></html>
