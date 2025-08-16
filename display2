@@ -1,0 +1,74 @@
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display</title>
+<style>
+html,body{height:100%;margin:0;background:#0b1220;color:#fff;font-family:"Noto Sans Thai",system-ui}
+.wrap{display:grid;grid-template-columns:1fr 34%;height:100%}
+.left{position:relative;background:#000;display:flex;align-items:center;justify-content:center}
+.right{padding:12px;display:flex;flex-direction:column;gap:10px;background:#0d1117;border-left:2px solid rgba(255,255,255,.08)}
+.slot{background:#111826;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px;min-height:68px;display:flex;align-items:center;justify-content:space-between}
+.no{font-size:36px;font-weight:900;letter-spacing:.5px}
+.ct{font-size:18px;font-weight:800;opacity:.9}
+.blink{animation:blink .8s step-start infinite}
+@keyframes blink{50%{opacity:.25}}
+.ctrl{position:absolute;bottom:10px;left:10px;display:flex;gap:8px}
+button{padding:8px 12px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-weight:900;cursor:pointer}
+video{width:100%;height:100%;object-fit:cover}
+</style></head><body>
+<div class="wrap">
+  <div class="left">
+    <video id="v" autoplay muted loop playsinline></video>
+    <div class="ctrl"><button onclick="enableSound()">เปิดเสียง</button></div>
+  </div>
+  <div class="right" id="list"></div>
+</div>
+
+<audio id="ding" preload="auto">
+  <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mpeg">
+</audio>
+
+<script>
+let BLINK_MS = 7000, slots = [];
+
+(function buildSlots(){
+  const list = document.getElementById('list');
+  for (let i=0;i<5;i++){
+    list.insertAdjacentHTML('beforeend',
+      `<div class="slot" data-idx="${i}">
+         <div class="no" id="q${i}">—</div>
+         <div class="ct" id="c${i}">โต๊ะ —</div>
+       </div>`);
+  }
+})();
+
+function refresh(){
+  google.script.run.withSuccessHandler(res=>{
+    BLINK_MS = res.blink_ms || 7000;
+    const now = Date.now();
+    slots = (res.slots||[]).map(x=>({
+      q:x.queue_number, counter:x.counter_no,
+      ts:x.ts_called? new Date(x.ts_called).getTime(): now,
+      blinkUntil:(x.ts_called? new Date(x.ts_called).getTime(): now)+BLINK_MS,
+      color:x.color_hex
+    }));
+    render();
+  }).getDisplayFeed();
+}
+function render(){
+  const now = Date.now();
+  for (let i=0;i<5;i++){
+    const s = slots[i] || {};
+    const q = document.getElementById('q'+i);
+    const c = document.getElementById('c'+i);
+    const slot = document.querySelector('.slot[data-idx="'+i+'"]');
+    q.textContent = s.q || '—';
+    c.textContent = 'โต๊ะ ' + (s.counter || '—');
+    slot.style.boxShadow = `inset 0 0 0 3px ${s.color || '#334155'}`;
+    q.classList.toggle('blink', !!s.q && now < (s.blinkUntil||0));
+  }
+}
+function enableSound(){ document.getElementById('v').muted=false; document.getElementById('ding').play().catch(()=>{}); }
+let lastTop=''; setInterval(()=>{ if(slots[0] && slots[0].q!==lastTop){ lastTop=slots[0].q; document.getElementById('ding').play().catch(()=>{});} },800);
+setInterval(refresh,3000); refresh();
+</script>
+</body></html>
