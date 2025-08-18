@@ -14,8 +14,9 @@
   <h1>Display</h1>
   <div id="slot-container"></div>
   <script>
+    const BASE_URL = 'https://script.google.com/macros/s/AKfycbynZS8snurr-ToNXqSapp0TUzhsmh7m4nu1NXyjDeM20wk7F0ig7DeyQZaDavBuw-ERSw/exec';
     let slots = [];
-
+    
     function render() {
       const container = document.getElementById('slot-container');
       container.innerHTML = '';
@@ -34,7 +35,7 @@
 
     async function refresh() {
       try {
-        const res = await fetch('https://script.google.com/macros/s/AKfycbynZS8snurr-ToNXqSapp0TUzhsmh7m4nu1NXyjDeM20wk7F0ig7DeyQZaDavBuw-ERSw/exec');
+        const res = await fetch(`${BASE_URL}?feed=display`);
         const data = await res.json();
         slots = Array.isArray(data) ? data : (data.slots || []);
         render();
@@ -48,3 +49,4 @@
   </script>
 </body>
 </html>
+
