@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Display</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 0; padding: 1rem; }
+    #slot-container { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .slot { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; min-width: 80px; font-size: 2rem; background: #fff; }
+  </style>
+</head>
+<body>
+  <h1>Display</h1>
+  <div id="slot-container"></div>
+  <script>
+    let slots = [];
+
+    function render() {
+      const container = document.getElementById('slot-container');
+      container.innerHTML = '';
+      slots.forEach(slot => {
+        const div = document.createElement('div');
+        div.className = 'slot';
+        if (slot && typeof slot === 'object') {
+          const text = slot.queue || slot.number || Object.values(slot).join(' ');
+          div.textContent = text;
+        } else {
+          div.textContent = slot;
+        }
+        container.appendChild(div);
+      });
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch('https://script.google.com/macros/s/AKfycbynZS8snurr-ToNXqSapp0TUzhsmh7m4nu1NXyjDeM20wk7F0ig7DeyQZaDavBuw-ERSw/exec');
+        const data = await res.json();
+        slots = Array.isArray(data) ? data : (data.slots || []);
+        render();
+      } catch (err) {
+        console.error('refresh failed', err);
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>
