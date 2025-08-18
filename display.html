@@ -41,19 +41,24 @@ let BLINK_MS = 7000, slots = [];
   }
 })();
 
-function refresh(){
-  google.script.run.withSuccessHandler(res=>{
-    BLINK_MS = res.blink_ms || 7000;
-    const now = Date.now();
-    slots = (res.slots||[]).map(x=>({
-      q:x.queue_number, counter:x.counter_no,
-      ts:x.ts_called? new Date(x.ts_called).getTime(): now,
-      blinkUntil:(x.ts_called? new Date(x.ts_called).getTime(): now)+BLINK_MS,
-      color:x.color_hex
-    }));
-    render();
-  }).getDisplayFeed();
+function refresh() {
+  fetch('https://script.google.com/macros/s/AKfycbynZS8snurr-ToNXqSapp0TUzhsmh7m4nu1NXyjDeM20wk7F0ig7DeyQZaDavBuw-ERSw/exec')
+    .then(res => res.json())
+    .then(res => {
+      BLINK_MS = res.blink_ms || 7000;
+      const now = Date.now();
+      slots = (res.slots || []).map(x => ({
+        q: x.queue_number,
+        counter: x.counter_no,
+        ts: x.ts_called ? new Date(x.ts_called).getTime() : now,
+        blinkUntil: (x.ts_called ? new Date(x.ts_called).getTime() : now) + BLINK_MS,
+        color: x.color_hex
+      }));
+      render();
+    })
+    .catch(err => console.error('fetch error', err));
 }
+
 function render(){
   const now = Date.now();
   for (let i=0;i<5;i++){
