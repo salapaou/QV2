@@ -26,22 +26,22 @@ function onOpen(){
 function openKioskA(){
   const html = HtmlService.createHtmlOutputFromFile('kiosk')
     .setWidth(420).setHeight(640);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Kiosk (ตัวอย่างประเภท A)');
+  SpreadsheetApp.getUi().openInNewTab(html, 'Kiosk (ตัวอย่างประเภท A)');
 }
 function openDesk1(){
   const html = HtmlService.createHtmlOutputFromFile('desk')
     .setWidth(780).setHeight(720);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Desk โต๊ะ 1');
+  SpreadsheetApp.getUi().openInNewTab(html, 'Desk โต๊ะ 1');
 }
 function openCentral(){
   const html = HtmlService.createHtmlOutputFromFile('central')
     .setTitle('Central');
-  SpreadsheetApp.getUi().showSidebar(html); // จอกลางเหมาะกับ sidebar กว้างสูง
+  SpreadsheetApp.getUi().openInNewTab(html); // จอกลางเหมาะกับ sidebar กว้างสูง
 }
 function openDisplay(){
   const html = HtmlService.createHtmlOutputFromFile('display')
     .setWidth(1024).setHeight(640);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Display (ตัวอย่าง)');
+  SpreadsheetApp.getUi().openInNewTab(html, 'Display (ตัวอย่าง)');
 }
 
 /** แสดงลิงก์ Web App ที่ deploy แล้ว (ใช้เปิดภายนอกได้) */
@@ -62,10 +62,18 @@ function showWebAppLinks(){
   SpreadsheetApp.getUi().showModalDialog(html, 'Web App Links');
 }
 
-function openKioskA(){ HtmlService.createHtmlOutputFromFile('kiosk'); }
-function openDesk1(){ HtmlService.createHtmlOutputFromFile('desk'); }
-function openCentral(){ HtmlService.createHtmlOutputFromFile('central'); }
-function openDisplay(){ HtmlService.createHtmlOutputFromFile('display'); }
+function getKioskHtml(){
+  return HtmlService.createHtmlOutputFromFile('kiosk');
+}
+function getDeskHtml(){
+  return HtmlService.createHtmlOutputFromFile('desk');
+}
+function getCentralHtml(){
+  return HtmlService.createHtmlOutputFromFile('central');
+}
+function getDisplayHtml(){
+  return HtmlService.createHtmlOutputFromFile('display');
+}
 
 function setupSheets(){
   const ss = SpreadsheetApp.getActive();
@@ -187,16 +195,16 @@ function logAction_(obj){
 
 /** ============ doGet Router ============ **/
 function doGet(e){
-  const page = (e && e.parameter && e.parameter.page)||'central';
-  const t = {
-    kiosk:   'kiosk',
-    desk:    'desk',
-    central: 'central',
-    display: 'display'
-  }[page] || 'central';
-  return HtmlService.createHtmlOutputFromFile(t)
+const page = (e && e.parameter && e.parameter.page) || 'central';
+  const fn = {
+    kiosk: getKioskHtml,
+    desk: getDeskHtml,
+    central: getCentralHtml,
+    display: getDisplayHtml,
+  }[page] || getCentralHtml;
+  return fn()
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .setTitle('QueueV2 / '+t);
+    .setTitle('QueueV2 / ' + page);
 }
 
 /** ============ Core helpers for queue ============ **/
@@ -467,25 +475,59 @@ function getDisplayFeed(){
   const {display, types} = loadConfig_();
   const {map, vals} = loadQueue_();
 
-  // ล่าสุดสถานะ called ตามเวลา ts_called (ไม่รวม cancelled)
   const called = vals
-    .filter(r=> String(r[map['status']])===STATUS_CALLED)
-    .map(r=>({
-      queue_number: (r[map['queue_number']]||'')+'',
-      type: (r[map['type']]||'')+'',
+    .filter(r => String(r[map['status']]) === STATUS_CALLED)
+    .map(r => ({
+      queue_number: (r[map['queue_number']] || '') + '',
+      type: (r[map['type']] || '') + '',
       counter_no: r[map['counter_no']],
       ts_called: r[map['ts_called']] ? new Date(r[map['ts_called']]) : null
     }))
-    .sort((a,b)=>(b.ts_called||0)-(a.ts_called||0))
+    .sort((a,b) => (b.ts_called||0) - (a.ts_called||0))
     .slice(0, display.max_slots);
 
-  // enrich color & display name
   called.forEach(x=>{
     const t = types[x.type] || {display:x.type, color:'#374151'};
     x.type_display = t.display;
     x.color_hex    = t.color;
   });
 
-  return {slots:called, blink_ms:display.blink_ms, now:new Date()};
+  // ทำความสะอาด video_url และ fallback เป็นไฟล์สาธารณะถ้าไม่มี/ไม่ตรงนามสกุล
+  let vurl = (display.video_url || '').toString().trim();
+  const lower = vurl.split('?')[0].toLowerCase();
+  const isDirectVideo = (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogv') || lower.endsWith('.ogg'));
+  if (!vurl || !isDirectVideo) {
+    vurl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  }
+
+  return { slots: called, blink_ms: display.blink_ms, video_url: vurl, now: new Date() };
 }
 
+/** Helper: เปิด URL ในแท็บใหม่แล้วปิดตัวเอง */
+function openInNewTab(url) {
+  const html = HtmlService.createHtmlOutput(
+    `<script>
+       window.open('${url}', '_blank');
+       google.script.host.close();
+     </script>`
+  ).setWidth(10).setHeight(10);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Loading…');
+}
+
+/** เรียกใช้สำหรับแต่ละหน้า */
+function openKioskA() {
+  const base = ScriptApp.getService().getUrl();
+  openInNewTab(`${base}?page=kiosk&type=A`);
+}
+function openDesk1() {
+  const base = ScriptApp.getService().getUrl();
+  openInNewTab(`${base}?page=desk&counter=1`);
+}
+function openCentral() {
+  const base = ScriptApp.getService().getUrl();
+  openInNewTab(`${base}?page=central`);
+}
+function openDisplay() {
+  const base = ScriptApp.getService().getUrl();
+  openInNewTab(`${base}?page=display`);
+}
